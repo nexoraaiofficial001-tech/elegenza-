@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isStaff() {
+      return isAuthenticated() && (getUserRole() == 'staff' || getUserRole() == 'admin');
+    }
+    
+    function isRider() {
+      return isAuthenticated() && getUserRole() == 'rider';
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Users cannot change their own role or loyalty points directly
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'loyaltyPoints'])) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Categories & Menu Items: Public Read, Admin Write
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /menuItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow read: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid) || (isRider() && resource.data.riderId == request.auth.uid);
+      allow create: if true; // Guest orders allowed via validated backend transaction
+      allow update: if isStaff() || (isRider() && resource.data.riderId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Reservations Collection
+    match /reservations/{reservationId} {
+      allow read: if isStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if true;
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // Reviews Collection
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // Settings, Content & Delivery Zones: Public Read, Admin Write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /content/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Tables: Public Read, Staff/Admin Write
+    match /tables/{tableId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // Staff Assistance Calls: Public Create, Staff Read/Write
+    match /staffCalls/{callId} {
+      allow create: if true;
+      allow read, update, delete: if isStaff();
+    }
+
+    // Promos & Gift Cards: Read for verification, Server/Admin Write
+    match /promos/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /giftCards/{cardId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Audit Logs & Refunds: Admin only
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /refunds/{refundId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /newsletter/{emailId} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow create: if true;
+      allow read, delete: if isStaff();
+    }
+  }
+}

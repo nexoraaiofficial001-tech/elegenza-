@@ -1,0 +1,6 @@
+{
+  "name": "Cafe Eleganza - Solarium & Artisan Coffee",
+  "description": "Cafe Eleganza (Eleganza Solarium) in Faisalabad, Pakistan. Handcrafted coffee, Limka coolers, East Corner cuisine, wood-fired pizza, QR table ordering & express delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
